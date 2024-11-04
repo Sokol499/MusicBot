@@ -6,11 +6,11 @@ import yandex_music
 import os
 import asyncio
 
-from config import TOKEN
+from config import TOKEN, TOKEN_1
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token="7726809113:AAFpJSJq90G95kRov7saYikL_LUVRoR0Y8I")
+bot = Bot(token=TOKEN_1)
 dp = Dispatcher()
 
 YANDEX_MUSIC_TOKEN = TOKEN

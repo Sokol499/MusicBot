@@ -8,7 +8,7 @@ import asyncio
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token="")
+bot = Bot(token="7726809113:AAFpJSJq90G95kRov7saYikL_LUVRoR0Y8I")
 dp = Dispatcher()
 
 YANDEX_MUSIC_TOKEN = ""

@@ -20,7 +20,7 @@ ym_client = yandex_music.Client(YANDEX_MUSIC_TOKEN).init()
 @dp.message(Command(commands=['start', 'help']))
 async def send_welcome(message: Message):
     await message.reply(
-        "Привет! Отправь название или ссылку на трек из Яндекс Музыки, и я отправлю тебе его аудиофайл.\n"
+        "Привет! Отправь название или ссылку на трек, и я отправлю тебе его аудиофайл.\n"
         "Вводить надо в формате: /track ссылка_на_трек или название_трека")
 
 @dp.message(Command(commands=['track']))
@@ -66,4 +66,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-

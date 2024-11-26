@@ -1,1 +1,4 @@
-config.py
+Project/config.py
+music_service/data
+music_service/pgdata
+music_service/bin

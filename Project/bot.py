@@ -70,7 +70,7 @@ async def get_album(message: Message):
         await message.reply("Пожалуйста, укажите название или ссылку на альбом")
         return
 
-    await message.reply("Поиск альбома, пожалуйста, подождите...")
+    await message.reply("Поиск трека, пожалуйста, подождите...")
 
     try:
         if "music.yandex.ru" in arg:
@@ -105,6 +105,25 @@ async def get_album(message: Message):
     except Exception as e:
         await message.reply("Произошла ошибка при загрузке альбома.")
         logging.error(f"Ошибка при загрузке альбома: {e}")
+
+
+
+@dp.message(Command(commands=['create_playlist']))
+async def create_playlist(message: Message):
+    await message.reply("Функция создания плейлистов находится в разработке.")
+
+@dp.message(Command(commands=['add_to_playlist']))
+async def add_to_playlist(message: Message):
+    await message.reply("Функция добавления треков в плейлист находится в разработке.")
+
+@dp.message(Command(commands=['remove_from_playlist']))
+async def remove_from_playlist(message: Message):
+    await message.reply("Функция удаления треков из плейлиста находится в разработке.")
+
+@dp.message(Command(commands=['play_playlist']))
+async def play_playlist(message: Message):
+    await message.reply("Функция воспроизведения плейлиста находится в разработке.")
+
 
 async def main():
     await dp.start_polling(bot)

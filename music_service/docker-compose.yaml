@@ -1,0 +1,31 @@
+version: "3.7"
+services:
+  postgres:
+    image: postgres:alpine3.20
+    restart: on-failure
+    environment:
+      POSTGRES_DB: "playlist"
+      POSTGRES_USER: "go"
+      POSTGRES_PASSWORD: "go"
+      PGDATA: "/data/pgdata"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sql_scripts:/docker-entrypoint-initdb.d
+      - ./data:/data
+  app:
+    build: .
+    container_name: music_service
+    restart: on-failure
+    depends_on: 
+      - postgres
+    environment:
+      APP_IP: "0.0.0.0"
+      APP_PORT: "9000"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: "playlist"
+      POSTGRES_USER: "go"
+      POSTGRES_PASSWORD: "go"
+    ports:
+      - "9000:9000"

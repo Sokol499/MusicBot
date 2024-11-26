@@ -1,0 +1,3 @@
+[submodule "music_service"]
+	path = music_service
+	url = ./

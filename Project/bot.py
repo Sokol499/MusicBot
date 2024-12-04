@@ -123,7 +123,7 @@ async def send_album_to_user(album, message: Message):
 
 @dp.message(Command(commands=['create_playlist']))
 async def create_playlist(message: Message):
-    await message.reply("Функция создания плейлистов находится в разработке.")
+    await client.add_playlist(message)
 
 @dp.message(Command(commands=['add_to_playlist']))
 async def add_to_playlist(message: Message):

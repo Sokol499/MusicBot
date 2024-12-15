@@ -8,7 +8,7 @@ def get_host_port():
     return host, port
 
 
-def add_playlist(playlist_name):
+def add_playlist(playlist_name: str):
     host, port = get_host_port()
     target = f"{host}:{port}"
 
@@ -19,11 +19,11 @@ def add_playlist(playlist_name):
             playlist = Playlist(name=playlist_name)
 
             response = client.AddPlaylist(playlist)
-            print(response.response)
+            return response.response
 
     except Exception as e:
         print("Error:", e)
-
+        raise
 
 def add_song(song_author, song_name):
     host, port = get_host_port()

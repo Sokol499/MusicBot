@@ -125,7 +125,17 @@ async def send_album_to_user(album, message: Message):
 
 @dp.message(Command(commands=['create_playlist']))
 async def create_playlist(message: Message):
-    await client.add_playlist(message)
+    playlist_name = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
+    if not playlist_name:
+        await message.reply("Введите имя плейлиста после команды.")
+        return
+
+    try:
+        response = client.add_playlist(playlist_name)
+        await message.reply(f"Плейлист '{playlist_name}' успешно создан!")
+    except Exception as e:
+        logging.error(f"Ошибка при создании плейлиста: {e}")
+        await message.reply("Произошла ошибка при создании плейлиста. Попробуйте ещё раз позже.")
 
 @dp.message(Command(commands=['add_to_playlist']))
 async def add_to_playlist(message: Message):

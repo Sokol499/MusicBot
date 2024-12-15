@@ -6,6 +6,8 @@ import yandex_music
 import os
 import asyncio
 
+import client
+
 from config import TOKEN, TOKEN_1
 
 logging.basicConfig(level=logging.INFO)

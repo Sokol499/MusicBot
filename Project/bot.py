@@ -140,23 +140,29 @@ async def create_playlist(message: Message):
 
 @dp.message(Command(commands=['add_to_playlist']))
 async def add_to_playlist(message: Message):
-    args = message.text.split(maxsplit=2)
-    if len(args) < 3:
-        await message.reply("Использование: /add_to_playlist <название_песни> <название_плейлиста>")
+    args = parse_user_input(message)
+    if not args or len(args.split(" ", 1)) < 2:
+        await message.reply("Использование: /add_to_playlist <название песни>, <название плейлиста>")
         return
 
-    song_name, playlist_name = args[1], args[2]
-
     try:
-        response = client.add_song_to_playlist(song_name, playlist_name)
+        song_name, playlist_name = map(str.strip, args.split(",", maxsplit=1))
+
+        track = await find_track(song_name)
+        if not track:
+            await message.reply(f"Трек '{song_name}' не найден в Яндекс Музыке.")
+            return
+
+        response = client.add_song_to_playlist(track.title, playlist_name)
 
         if response:
-            await message.reply(f"Песня '{song_name}' была добавлена в плейлист '{playlist_name}'!")
+            await message.reply(f"Песня '{track.title}' добавлена в плейлист '{playlist_name}'!")
         else:
-            await message.reply(f"Не удалось добавить песню '{song_name}' в плейлист '{playlist_name}'.")
+            await message.reply(f"Не удалось добавить песню '{track.title}' в плейлист '{playlist_name}'.")
     except Exception as e:
-        logging.error(f"Ошибка при добавлении песни в плейлист: {e}")
-        await message.reply(f"Произошла ошибка при добавлении песни в плейлист '{playlist_name}'. Попробуйте снова позже.")
+        logging.error(f"Ошибка при добавлении трека в плейлист: {e}")
+        await message.reply(f"Произошла ошибка при добавлении песни '{song_name}' в плейлист '{playlist_name}'. Попробуйте снова позже.")
+
 
 
 @dp.message(Command(commands=['remove_from_playlist']))
@@ -201,6 +207,37 @@ async def play_playlist(message: Message):
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка: {e}")
+
+
+@dp.message(Command(commands=['play_playlist']))
+async def play_playlist(message: Message):
+    playlist_name = parse_user_input(message)
+    if not playlist_name:
+        await message.reply("Введите имя плейлиста после команды.")
+        return
+
+    try:
+        response = client.print_playlist(playlist_name)
+
+        if response is None or not response.songs:
+            await message.reply(f"Плейлист '{playlist_name}' пуст или не найден.")
+            return
+
+        await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
+
+        for i, song in enumerate(response.songs, start=1):
+            await message.reply(f"Обработка трека №{i}: {song.name}")
+
+            track = await find_track(song.name)
+            if not track:
+                await message.reply(f"Трек '{song.name}' не найден в Яндекс.Музыке. Пропускаю...")
+                continue
+
+            await send_track_to_user(track, message)
+
+    except Exception as e:
+        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
+        logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
 
 
 async def main():

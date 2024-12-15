@@ -137,17 +137,71 @@ async def create_playlist(message: Message):
         logging.error(f"Ошибка при создании плейлиста: {e}")
         await message.reply("Произошла ошибка при создании плейлиста. Попробуйте ещё раз позже.")
 
+
 @dp.message(Command(commands=['add_to_playlist']))
 async def add_to_playlist(message: Message):
-    await message.reply("Функция добавления треков в плейлист находится в разработке.")
+    args = message.text.split(maxsplit=2)
+    if len(args) < 3:
+        await message.reply("Использование: /add_to_playlist <название_песни> <название_плейлиста>")
+        return
+
+    song_name, playlist_name = args[1], args[2]
+
+    try:
+        response = client.add_song_to_playlist(song_name, playlist_name)
+
+        if response:
+            await message.reply(f"Песня '{song_name}' была добавлена в плейлист '{playlist_name}'!")
+        else:
+            await message.reply(f"Не удалось добавить песню '{song_name}' в плейлист '{playlist_name}'.")
+    except Exception as e:
+        logging.error(f"Ошибка при добавлении песни в плейлист: {e}")
+        await message.reply(f"Произошла ошибка при добавлении песни в плейлист '{playlist_name}'. Попробуйте снова позже.")
+
 
 @dp.message(Command(commands=['remove_from_playlist']))
 async def remove_from_playlist(message: Message):
-    await message.reply("Функция удаления треков из плейлиста находится в разработке.")
+    args = message.text.split(maxsplit=2)
+    if len(args) < 3:
+        await message.reply("Использование: /remove_from_playlist <название_песни> <название_плейлиста>")
+        return
+
+    song_name, playlist_name = args[1], args[2]
+
+    try:
+        response = client.delete_song_from_playlist(song_name, playlist_name)
+
+        if response:
+            await message.reply(f"Песня '{song_name}' была удалена из плейлиста '{playlist_name}'!")
+        else:
+            await message.reply(f"Не удалось удалить песню '{song_name}' из плейлиста '{playlist_name}'.")
+    except Exception as e:
+        await message.reply(f"Произошла ошибка при удалении песни из плейлиста '{playlist_name}'. Попробуйте снова позже.")
+        logging.error(f"Ошибка при удалении песни из плейлиста: {e}")
+
 
 @dp.message(Command(commands=['play_playlist']))
 async def play_playlist(message: Message):
-    await message.reply("Функция воспроизведения плейлиста находится в разработке.")
+    playlist_name = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
+    if not playlist_name:
+        await message.reply("Введите имя плейлиста после команды.")
+        return
+
+    try:
+        response = client.print_playlist(playlist_name)
+
+        if response is None or not response.songs:
+            await message.reply(f"Плейлист '{playlist_name}' пуст или не найден.")
+            return
+
+        playlist_message = f"Воспроизвожу плейлист '{playlist_name}':\n"
+        playlist_message += '\n'.join([f"№{i + 1}. {song.name}" for i, song in enumerate(response.songs)])
+        await message.reply(playlist_message)
+
+    except Exception as e:
+        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
+        logging.error(f"Ошибка: {e}")
+
 
 async def main():
     await dp.start_polling(bot)

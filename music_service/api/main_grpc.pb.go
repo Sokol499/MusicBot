@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.28.2
-// source: proto/main.proto
+// source: main.proto
 
 package api
 
@@ -649,5 +649,5 @@ var MusicService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/main.proto",
+	Metadata: "main.proto",
 }

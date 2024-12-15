@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/gremislaw/music_service/api"
+	"music_service/api"
 	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 	"music_service/service"

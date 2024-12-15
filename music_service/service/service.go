@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gremislaw/music_service/api"
+	"music_service/api"
 )
 
 type MusicServiceServer struct {

@@ -3,8 +3,8 @@ from api.main_pb2_grpc import MusicServiceStub
 from grpc import insecure_channel
 
 def get_host_port():
-    host = "localhost"
-    port = "9000"
+    host = "0.0.0.0"
+    port = "8000"
     return host, port
 
 
@@ -19,6 +19,7 @@ def add_playlist(playlist_name: str):
             playlist = Playlist(name=playlist_name)
 
             response = client.AddPlaylist(playlist)
+
             return response.response
 
     except Exception as e:

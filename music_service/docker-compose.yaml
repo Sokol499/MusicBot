@@ -21,11 +21,11 @@ services:
       - postgres
     environment:
       APP_IP: "0.0.0.0"
-      APP_PORT: "9000"
+      APP_PORT: "8000"
       POSTGRES_HOST: "postgres"
       POSTGRES_PORT: "5432"
       POSTGRES_DB: "playlist"
       POSTGRES_USER: "go"
       POSTGRES_PASSWORD: "go"
     ports:
-      - "9000:9000"
+      - "8000:8000"

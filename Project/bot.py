@@ -189,29 +189,6 @@ async def remove_from_playlist(message: Message):
 
 @dp.message(Command(commands=['play_playlist']))
 async def play_playlist(message: Message):
-    playlist_name = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
-    if not playlist_name:
-        await message.reply("Введите имя плейлиста после команды.")
-        return
-
-    try:
-        response = client.print_playlist(playlist_name)
-
-        if response is None or not response.songs:
-            await message.reply(f"Плейлист '{playlist_name}' пуст или не найден.")
-            return
-
-        playlist_message = f"Воспроизвожу плейлист '{playlist_name}':\n"
-        playlist_message += '\n'.join([f"№{i + 1}. {song.name}" for i, song in enumerate(response.songs)])
-        await message.reply(playlist_message)
-
-    except Exception as e:
-        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
-        logging.error(f"Ошибка: {e}")
-
-
-@dp.message(Command(commands=['play_playlist']))
-async def play_playlist(message: Message):
     playlist_name = parse_user_input(message)
     if not playlist_name:
         await message.reply("Введите имя плейлиста после команды.")

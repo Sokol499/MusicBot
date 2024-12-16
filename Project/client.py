@@ -63,13 +63,15 @@ def add_song_to_playlist(song_author, song_name, playlist_name):
 
             response = client.AddSongToPlaylist(song_playlist)
 
-            if response is None:
-                print("Error:", "not found")
+            if not response or not response.response:
+                print(f"Error: не удалось добавить песню '{song_name}' в плейлист '{playlist_name}'")
+                return None
             else:
-                print(response.response)
+                return response.response
 
     except Exception as e:
-        print("Error:", e)
+        print(f"Error: {e}")
+        return None
 
 
 def delete_playlist(playlist_name):

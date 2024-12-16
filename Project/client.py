@@ -46,11 +46,13 @@ def add_song(song_author, song_name):
         print("Error:", e)
 
 
-def add_song_to_playlist(song_name, playlist_name):
+def add_song_to_playlist(song_author, song_name, playlist_name):
     host, port = get_host_port()
     target = f"{host}:{port}"
 
     try:
+        add_song(song_author, song_name)
+
         with insecure_channel(target) as channel:
             client = MusicServiceStub(channel)
 

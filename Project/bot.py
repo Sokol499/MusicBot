@@ -141,7 +141,7 @@ async def create_playlist(message: Message):
 @dp.message(Command(commands=['add_to_playlist']))
 async def add_to_playlist(message: Message):
     args = parse_user_input(message)
-    if not args or len(args.split(" ", 1)) < 2:
+    if not args or len(args.split(",", 1)) < 2:
         await message.reply("Использование: /add_to_playlist <название песни>, <название плейлиста>")
         return
 
@@ -153,16 +153,17 @@ async def add_to_playlist(message: Message):
             await message.reply(f"Трек '{song_name}' не найден в Яндекс Музыке.")
             return
 
-        response = client.add_song_to_playlist(track.title, playlist_name)
+        song_author = ', '.join(artist.name for artist in track.artists)
+
+        response = client.add_song_to_playlist(song_author, track.title, playlist_name)
 
         if response:
-            await message.reply(f"Песня '{track.title}' добавлена в плейлист '{playlist_name}'!")
+            await message.reply(f"Песня '{track.title}' от '{song_author}' добавлена в плейлист '{playlist_name}'!")
         else:
-            await message.reply(f"Не удалось добавить песню '{track.title}' в плейлист '{playlist_name}'.")
+            await message.reply(f"Не удалось добавить песню '{track.title}' от '{song_author}' в плейлист '{playlist_name}'.")
     except Exception as e:
         logging.error(f"Ошибка при добавлении трека в плейлист: {e}")
         await message.reply(f"Произошла ошибка при добавлении песни '{song_name}' в плейлист '{playlist_name}'. Попробуйте снова позже.")
-
 
 
 @dp.message(Command(commands=['remove_from_playlist']))

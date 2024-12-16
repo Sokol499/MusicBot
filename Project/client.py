@@ -168,22 +168,6 @@ def get_song(song_name):
         print("Error:", e)
 
 
-def play():
-    host, port = get_host_port()
-    target = f"{host}:{port}"
-
-    try:
-        with insecure_channel(target) as channel:
-            client = MusicServiceStub(channel)
-
-            response = client.Play(Empty())
-
-            print(response.response)
-
-    except Exception as e:
-        print("Error:", e)
-
-
 def print_playlist(playlist_name):
     host, port = get_host_port()
     target = f"{host}:{port}"
@@ -194,14 +178,17 @@ def print_playlist(playlist_name):
 
             response = client.PrintPlaylist(Playlist(name=playlist_name))
 
-            if response is None:
-                print("Error: not found")
-            else:
-                for i, song in enumerate(response.songs, start=1):
-                    print(f"№{i}. Song: {song}")
+            if response is None or not response.songs:
+                return f"Плейлист '{playlist_name}' пуст или не найден."
+
+            playlist_message = f"В плейлисте '{playlist_name}' следующие треки:\n"
+            for i, song in enumerate(response.songs, start=1):
+                playlist_message += f"№{i}. {song.name}\n"
+
+            return playlist_message
 
     except Exception as e:
-        print("Error:", e)
+        return f"Произошла ошибка при получении плейлиста '{playlist_name}': {e}"
 
 
 def update(song_name):

@@ -166,6 +166,44 @@ async def add_to_playlist(message: Message):
         await message.reply(f"Произошла ошибка при добавлении песни '{song_name}' в плейлист '{playlist_name}'. Попробуйте снова позже.")
 
 
+@dp.message(Command(commands=['play_playlist']))
+async def play_playlist(message: Message):
+    playlist_name = parse_user_input(message)
+    if not playlist_name:
+        await message.reply("Введите имя плейлиста после команды.")
+        return
+
+    try:
+        response = client.print_playlist(playlist_name)
+
+        if response is None or not response.songs:
+            await message.reply(f"Плейлист '{playlist_name}' пуст или не найден.")
+            return
+
+        await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
+
+        for i, song in enumerate(response.songs, start=1):
+            if not song.name.strip():
+                await message.reply(f"Трек №{i} в плейлисте пустой или некорректный. Пропускаю...")
+                continue
+
+            await message.reply(f"Обработка трека №{i}: {song.name}")
+
+            track = await find_track(song.name)
+            if not track:
+                await message.reply(f"Трек '{song.name}' не найден в Яндекс.Музыке. Пропускаю...")
+                continue
+
+            await send_track_to_user(track, message)
+
+        await message.reply("Спасибо за использование бота!")
+
+    except Exception as e:
+        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
+        logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
+
+
+"""
 @dp.message(Command(commands=['remove_from_playlist']))
 async def remove_from_playlist(message: Message):
     args = message.text.split(maxsplit=2)
@@ -185,39 +223,7 @@ async def remove_from_playlist(message: Message):
     except Exception as e:
         await message.reply(f"Произошла ошибка при удалении песни из плейлиста '{playlist_name}'. Попробуйте снова позже.")
         logging.error(f"Ошибка при удалении песни из плейлиста: {e}")
-
-
-@dp.message(Command(commands=['play_playlist']))
-async def play_playlist(message: Message):
-    playlist_name = parse_user_input(message)
-    if not playlist_name:
-        await message.reply("Введите имя плейлиста после команды.")
-        return
-
-    try:
-        response = client.print_playlist(playlist_name)
-
-        if "не найден" in response or "пуст" in response:
-            await message.reply(response)
-            return
-
-        await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
-
-        song_lines = response.split("\n")[1:]
-        for i, song_line in enumerate(song_lines, start=1):
-            song_name = song_line.split(". ")[-1]
-            await message.reply(f"Обработка трека №{i}: {song_name}")
-
-            track = await find_track(song_name)
-            if not track:
-                await message.reply(f"Трек '{song_name}' не найден в Яндекс.Музыке. Пропускаю...")
-                continue
-
-            await send_track_to_user(track, message)
-
-    except Exception as e:
-        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
-        logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
+"""
 
 
 async def main():

@@ -176,27 +176,23 @@ async def play_playlist(message: Message):
     try:
         response = client.print_playlist(playlist_name)
 
-        if response is None or not response.songs:
-            await message.reply(f"Плейлист '{playlist_name}' пуст или не найден.")
+        if "не найден" in response or "пуст" in response:
+            await message.reply(response)
             return
 
         await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
 
-        for i, song in enumerate(response.songs, start=1):
-            if not song.name.strip():
-                await message.reply(f"Трек №{i} в плейлисте пустой или некорректный. Пропускаю...")
-                continue
+        song_lines = response.split("\n")[1:]
+        for i, song_line in enumerate(song_lines, start=1):
+            song_name = song_line.split(". ")[-1]
+            await message.reply(f"Обработка трека №{i}: {song_name}")
 
-            await message.reply(f"Обработка трека №{i}: {song.name}")
-
-            track = await find_track(song.name)
+            track = await find_track(song_name)
             if not track:
-                await message.reply(f"Трек '{song.name}' не найден в Яндекс.Музыке. Пропускаю...")
+                await message.reply(f"Трек '{song_name}' не найден в Яндекс.Музыке. Пропускаю...")
                 continue
 
             await send_track_to_user(track, message)
-
-        await message.reply("Спасибо за использование бота!")
 
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")

@@ -1,27 +1,24 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"music_service/api"
-	_ "github.com/lib/pq"
-	"google.golang.org/grpc"
+	"music_service/config"
+	"music_service/db"
 	"music_service/service"
 	"net"
+
+	_ "github.com/lib/pq"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	cfg := service.NewConfig()
+	cfg := config.NewConfig()
 	if !cfg.IsValid() {
 		panic("incorrect config")
 	}
 
-	connStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable host=%s port=%s", cfg.POSTGRES_USER,
-		cfg.POSTGRES_PASSWORD, cfg.POSTGRES_DB, cfg.POSTGRES_HOST, cfg.POSTGRES_PORT)
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		panic("DB connection error")
-	}
+	db := db.Connect(cfg)
 	defer db.Close()
 
 	grpcServer := grpc.NewServer()

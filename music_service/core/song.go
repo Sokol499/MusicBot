@@ -3,7 +3,7 @@ package core
 import (
 	"container/list"
 	"context"
-	"errors"
+	"music_service/errors"
 	"fmt"
 	"time"
 )
@@ -113,15 +113,13 @@ func (p *SimplePlaylist) DeleteSong(name string) (string, error) {
 	var err error
 
 	if p.isPlaying {
-		err = errors.New("song is playing, can't delete")
 		p.coreMtx.Unlock()
-		return "song is playing, can't delete", err
+		return errors.ErrSongAlreadyPlaying.Error(), errors.ErrSongAlreadyPlaying
 	}
 	node, err := p.getNode(name)
 	if err != nil {
-		fmt.Println("Error:", err)
 		p.coreMtx.Unlock()
-		return "", err
+		return errors.ErrNotFound.Error(), errors.ErrNotFound
 	}
 	song := node.Value.(*Song)
 	res := fmt.Sprintf("Song deleted. Name: %s. Author: %s. Duration: %d.", song.Name, song.Author, song.Duration)
@@ -143,7 +141,6 @@ func (p *SimplePlaylist) GetSong(name string) (Song, error) {
 
 	node, err := p.getNode(name)
 	if err != nil {
-		fmt.Println("Error:", err)
 		p.coreMtx.Unlock()
 		return *song, err
 	}
@@ -153,18 +150,14 @@ func (p *SimplePlaylist) GetSong(name string) (Song, error) {
 	return res, err
 }
 
-func (p *SimplePlaylist) UpdateSong(name string, author string, duration int) (string, error) {
+func (p *SimplePlaylist) UpdateSong(song *Song) (string, error) {
 	p.coreMtx.Lock()
-	var song *Song
 	res := "song updated"
-	node, err := p.getNode(name)
+	node, err := p.getNode(song.Name)
 	if err != nil {
-		fmt.Println("Error:", err)
 		p.coreMtx.Unlock()
-		return "error", err
+		return errors.ErrNotFound.Error(), errors.ErrNotFound
 	}
-	song.Author = author
-	song.Duration = duration
 	node.Value = song
 	p.coreMtx.Unlock()
 	return res, err
@@ -172,7 +165,7 @@ func (p *SimplePlaylist) UpdateSong(name string, author string, duration int) (s
 
 func (p *SimplePlaylist) getNode(name string) (*list.Element, error) {
 	var node *list.Element
-	var err error = errors.New("not found")
+	var err error = errors.ErrNotFound
 	for e := p.Songs.Front(); e != nil; e = e.Next() {
 		if e.Value.(*Song).Name == name {
 			node = e

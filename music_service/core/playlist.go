@@ -3,7 +3,7 @@ package core
 import (
 	"container/list"
 	"context"
-	"errors"
+	"music_service/errors"
 	"fmt"
 	"sync"
 )
@@ -44,9 +44,7 @@ func DeletePlaylist(name string, p *SimplePlaylist) (string, error) {
 		return res, err
 	}
 	if p.isPlaying {
-		playing := "playlist is playing, can't delete"
-		err = errors.New(playing)
-		return playing, err
+		return errors.ErrPlaylistAlreadyPlaying.Error(), errors.ErrPlaylistAlreadyPlaying
 	}
 	return res, err
 }
@@ -61,21 +59,19 @@ func UpdatePlaylist(name string) (string, error) {
 	res := "playlist updated"
 	var err error = nil
 	if name == "" {
-		err = errors.New("Incorrect name for playlist")
-		fmt.Println("Error:", err)
-		return "error", err
+		return errors.ErrIncorrectPlaylistName.Error(), errors.ErrIncorrectPlaylistName
 	}
 	return res, err
 }
 
 func AddSongToPlaylist(song_id, playlist_id int64) string {
-	res := fmt.Sprintf("Song added to playlist.")
+	res := "Song added to playlist."
 	fmt.Println(res)
 	return res
 }
 
 func DeleteSongFromPlaylist(song_id, playlist_id int64) string {
-	res := fmt.Sprintf("Song deleted from playlist.")
+	res := "Song deleted from playlist."
 	fmt.Println(res)
 	return res
 }

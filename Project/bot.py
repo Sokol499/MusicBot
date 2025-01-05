@@ -1,6 +1,9 @@
 import logging
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 import yandex_music
 import os
@@ -13,7 +16,7 @@ from config import TOKEN, TOKEN_1
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=TOKEN_1)
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 
 YANDEX_MUSIC_TOKEN = TOKEN
 ym_client = yandex_music.Client(YANDEX_MUSIC_TOKEN).init()
@@ -27,6 +30,13 @@ main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Воспроизвести плейлист", callback_data="play_playlist")]
 ])
 
+class MusicStates(StatesGroup):
+    FIND_TRACK = State()
+    FIND_ALBUM = State()
+    CREATE_PLAYLIST = State()
+    ADD_TO_PLAYLIST = State()
+    PLAY_PLAYLIST = State()
+
 @dp.message(Command(commands=['start', 'help']))
 async def send_welcome(message: Message):
     await message.reply(
@@ -35,36 +45,26 @@ async def send_welcome(message: Message):
     )
 
 @dp.callback_query()
-async def handle_menu(callback: CallbackQuery):
+async def handle_menu(callback: CallbackQuery, state: FSMContext):
     if callback.data == "find_track":
         await callback.message.reply("Введите название или ссылку на трек.")
+        await state.set_state(MusicStates.FIND_TRACK)
     elif callback.data == "find_album":
         await callback.message.reply("Введите название или ссылку на альбом.")
+        await state.set_state(MusicStates.FIND_ALBUM)
     elif callback.data == "create_playlist":
         await callback.message.reply("Введите имя нового плейлиста.")
+        await state.set_state(MusicStates.CREATE_PLAYLIST)
     elif callback.data == "add_to_playlist":
         await callback.message.reply("Введите название трека и плейлиста в формате:\n<название трека>, <название плейлиста>")
+        await state.set_state(MusicStates.ADD_TO_PLAYLIST)
     elif callback.data == "play_playlist":
         await callback.message.reply("Введите имя плейлиста для воспроизведения.")
+        await state.set_state(MusicStates.PLAY_PLAYLIST)
 
-@dp.message()
-async def handle_user_input(message: Message):
-    if message.reply_to_message:
-        context = message.reply_to_message.text
-        if "Введите название или ссылку на трек" in context:
-            await process_find_track(message)
-        elif "Введите название или ссылку на альбом" in context:
-            await process_find_album(message)
-        elif "Введите имя нового плейлиста" in context:
-            await process_create_playlist(message)
-        elif "Введите название трека и плейлиста" in context:
-            await process_add_to_playlist(message)
-        elif "Введите имя плейлиста для воспроизведения" in context:
-            await process_play_playlist(message)
-    else:
-        await message.reply("Выберите действие через меню.", reply_markup=main_menu)
-
-async def process_find_track(message: Message):
+@dp.message(F.text, MusicStates.FIND_TRACK)
+async def process_find_track(message: Message, state: FSMContext):
+    await state.clear()
     arg = message.text
     if not arg:
         await message.reply("Пожалуйста, укажите название или ссылку на трек.")
@@ -79,12 +79,13 @@ async def process_find_track(message: Message):
             return
 
         await send_track_to_user(track, message)
-
     except Exception as e:
         await message.reply("Произошла ошибка при загрузке трека.")
         logging.error(f"Ошибка при загрузке трека: {e}")
 
-async def process_find_album(message: Message):
+@dp.message(F.text, MusicStates.FIND_ALBUM)
+async def process_find_album(message: Message, state: FSMContext):
+    await state.clear()
     arg = message.text
     if not arg:
         await message.reply("Пожалуйста, укажите название или ссылку на альбом.")
@@ -99,12 +100,13 @@ async def process_find_album(message: Message):
             return
 
         await send_album_to_user(album, message)
-
     except Exception as e:
         await message.reply("Произошла ошибка при загрузке альбома.")
         logging.error(f"Ошибка при загрузке альбома: {e}")
 
-async def process_create_playlist(message: Message):
+@dp.message(F.text, MusicStates.CREATE_PLAYLIST)
+async def process_create_playlist(message: Message, state: FSMContext):
+    await state.clear()
     playlist_name = message.text
     if not playlist_name:
         await message.reply("Введите имя плейлиста.")
@@ -117,7 +119,9 @@ async def process_create_playlist(message: Message):
         logging.error(f"Ошибка при создании плейлиста: {e}")
         await message.reply("Произошла ошибка при создании плейлиста. Попробуйте позже.")
 
-async def process_add_to_playlist(message: Message):
+@dp.message(F.text, MusicStates.ADD_TO_PLAYLIST)
+async def process_add_to_playlist(message: Message, state: FSMContext):
+    await state.clear()
     args = message.text
     if not args or len(args.split(",", 1)) < 2:
         await message.reply("Использование: <название трека>, <название плейлиста>")
@@ -141,7 +145,9 @@ async def process_add_to_playlist(message: Message):
         logging.error(f"Ошибка при добавлении трека в плейлист: {e}")
         await message.reply("Произошла ошибка. Попробуйте снова позже.")
 
-async def process_play_playlist(message: Message):
+@dp.message(F.text, MusicStates.PLAY_PLAYLIST)
+async def process_play_playlist(message: Message, state: FSMContext):
+    await state.clear()
     playlist_name = message.text
     if not playlist_name:
         await message.reply("Введите имя плейлиста.")
@@ -166,10 +172,13 @@ async def process_play_playlist(message: Message):
                 continue
 
             await send_track_to_user(track, message)
-
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
+
+
+def parse_user_input(message: Message) -> str:
+    return message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
 
 async def find_track(arg: str):
     if "music.yandex.ru" in arg:

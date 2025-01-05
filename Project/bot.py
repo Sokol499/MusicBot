@@ -1,7 +1,6 @@
-import logging
 from aiogram import Bot, Dispatcher
-from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message, InputFile, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InputFile
+from aiogram.filters import Command, Text
 import yandex_music
 import os
 import asyncio
@@ -10,6 +9,7 @@ from config import TOKEN, TOKEN_1
 import client  # Используется для работы с плейлистами
 
 # Логгирование
+import logging
 logging.basicConfig(level=logging.INFO)
 
 # Инициализация бота и диспетчера
@@ -23,26 +23,23 @@ ym_client = yandex_music.Client(YANDEX_MUSIC_TOKEN).init()
 
 # Главное меню
 def main_menu():
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton("🎵 Найти трек")],
-            [KeyboardButton("📀 Найти альбом")],
-            [KeyboardButton("📋 Управление плейлистами")],
-        ],
-        resize_keyboard=True
-    )
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    # Добавление кнопок
+    button1 = KeyboardButton("🎵 Найти трек")
+    button2 = KeyboardButton("📀 Найти альбом")
+    button3 = KeyboardButton("📋 Управление плейлистами")
+    keyboard.add(button1, button2, button3)
     return keyboard
 
 
+# Меню для управления плейлистами
 def playlist_menu():
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Создать плейлист", callback_data="create_playlist")],
-            [InlineKeyboardButton(text="Добавить в плейлист", callback_data="add_to_playlist")],
-            [InlineKeyboardButton(text="Воспроизвести плейлист", callback_data="play_playlist")],
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_main")],
-        ]
-    )
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    button1 = KeyboardButton("Создать плейлист")
+    button2 = KeyboardButton("Добавить в плейлист")
+    button3 = KeyboardButton("Воспроизвести плейлист")
+    button4 = KeyboardButton("Назад")
+    keyboard.add(button1, button2, button3, button4)
     return keyboard
 
 
@@ -52,34 +49,47 @@ async def send_welcome(message: Message):
     await message.reply("Привет! Выберите действие из меню ниже:", reply_markup=main_menu())
 
 
-# Обработка кнопок главного меню
-@dp.message()
-async def handle_main_menu(message: Message):
-    if message.text == "🎵 Найти трек":
-        await message.reply("Введите название или ссылку на трек:")
-    elif message.text == "📀 Найти альбом":
-        await message.reply("Введите название или ссылку на альбом:")
-    elif message.text == "📋 Управление плейлистами":
-        await message.reply("Выберите действие:", reply_markup=playlist_menu())
+# Обработка главного меню
+@dp.message(Text("🎵 Найти трек"))
+async def find_track_prompt(message: Message):
+    await message.reply("Введите название или ссылку на трек:")
 
 
-# Обработка кнопок подменю плейлистов
-@dp.callback_query()
-async def handle_playlist_menu(callback: CallbackQuery):
-    if callback.data == "create_playlist":
-        await callback.message.reply("Введите имя нового плейлиста:")
-    elif callback.data == "add_to_playlist":
-        await callback.message.reply("Введите название песни и плейлиста (через запятую):")
-    elif callback.data == "play_playlist":
-        await callback.message.reply("Введите название плейлиста для воспроизведения:")
-    elif callback.data == "back_to_main":
-        await callback.message.edit_text("Возвращение в главное меню:", reply_markup=main_menu())
+@dp.message(Text("📀 Найти альбом"))
+async def find_album_prompt(message: Message):
+    await message.reply("Введите название или ссылку на альбом:")
 
 
-# Логика работы с плейлистами через client
+@dp.message(Text("📋 Управление плейлистами"))
+async def manage_playlists(message: Message):
+    await message.reply("Выберите действие:", reply_markup=playlist_menu())
+
+
+# Обработка кнопок управления плейлистами
+@dp.message(Text("Создать плейлист"))
+async def create_playlist(message: Message):
+    await message.reply("Введите имя нового плейлиста:")
+
+
+@dp.message(Text("Добавить в плейлист"))
+async def add_to_playlist(message: Message):
+    await message.reply("Введите название песни и плейлиста (через запятую):")
+
+
+@dp.message(Text("Воспроизвести плейлист"))
+async def play_playlist(message: Message):
+    await message.reply("Введите название плейлиста для воспроизведения:")
+
+
+@dp.message(Text("Назад"))
+async def back_to_main_menu(message: Message):
+    await message.reply("Возвращение в главное меню:", reply_markup=main_menu())
+
+
+# Обработка создания плейлиста
 @dp.message()
 async def handle_create_playlist(message: Message):
-    playlist_name = parse_user_input(message)
+    playlist_name = message.text.strip()
     if not playlist_name:
         await message.reply("Пожалуйста, укажите имя для нового плейлиста.")
         return
@@ -92,10 +102,11 @@ async def handle_create_playlist(message: Message):
         await message.reply("Не удалось создать плейлист. Попробуйте позже.")
 
 
+# Обработка добавления трека в плейлист
 @dp.message()
 async def handle_add_to_playlist(message: Message):
-    user_input = parse_user_input(message)
-    if not user_input or ',' not in user_input:
+    user_input = message.text.strip()
+    if ',' not in user_input:
         await message.reply("Пожалуйста, укажите название песни и плейлиста через запятую.")
         return
 
@@ -108,9 +119,10 @@ async def handle_add_to_playlist(message: Message):
         await message.reply("Не удалось добавить трек в плейлист. Попробуйте позже.")
 
 
+# Обработка воспроизведения плейлиста
 @dp.message()
 async def handle_play_playlist(message: Message):
-    playlist_name = parse_user_input(message)
+    playlist_name = message.text.strip()
     if not playlist_name:
         await message.reply("Пожалуйста, укажите имя плейлиста для воспроизведения.")
         return
@@ -131,32 +143,7 @@ async def handle_play_playlist(message: Message):
         await message.reply("Не удалось воспроизвести плейлист. Попробуйте позже.")
 
 
-# Остальные вспомогательные функции остаются без изменений
-def parse_user_input(message: Message) -> str:
-    return message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
-
-
-async def find_track(arg: str):
-    if "music.yandex.ru" in arg:
-        track_id = arg.split("/")[-1].split("?")[0]
-        return ym_client.tracks([track_id])[0]
-    else:
-        search_results = ym_client.search(arg)
-        return search_results.best.result if search_results.best else None
-
-
-async def find_album(arg: str):
-    if "music.yandex.ru" in arg:
-        album_id = arg.split("/")[-1].split("?")[0]
-        return ym_client.albums_with_tracks(album_id)
-    else:
-        search_results = ym_client.search(arg)
-        if search_results.albums:
-            album = search_results.albums.results[0]
-            return ym_client.albums_with_tracks(album.id)
-        return None
-
-
+# Логика работы с Yandex Music
 async def send_track_to_user(track, message: Message, is_album=False):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
@@ -174,21 +161,6 @@ async def send_track_to_user(track, message: Message, is_album=False):
         await asyncio.sleep(5)
         if os.path.exists(track_filename):
             os.remove(track_filename)
-
-
-async def send_album_to_user(album, message: Message):
-    album_name = album.title
-    artist_names = ', '.join(artist.name for artist in album.artists)
-    await message.reply(f"Начинаю отправку треков из альбома: {album_name} - {artist_names}")
-
-    for volume in album.volumes:
-        for track in volume:
-            await send_track_to_user(track, message, is_album=True)
-            await asyncio.sleep(2)
-
-    await message.reply(
-        f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота"
-    )
 
 
 # Основная функция

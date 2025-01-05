@@ -8,6 +8,7 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
+import io
 
 import client
 
@@ -210,26 +211,53 @@ async def send_track_to_user(track, message: Message, is_album=False):
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        track.download(track_filename)
-        audio_file = FSInputFile(track_filename)
+        # Скачиваем трек в буфер памяти
+        buffer = io.BytesIO()
+        track.download(buffer)
+        buffer.seek(0)  # Возвращаемся в начало буфера
+
+        # Отправляем трек в Telegram
+        audio_file = FSInputFile(buffer, filename=track_filename)
         await message.reply_document(audio_file)
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
-    finally:
-        if os.path.exists(track_filename):
-            os.remove(track_filename)
+    except Exception as e:
+        logging.error(f"Ошибка при отправке трека {track.title}: {e}")
+        await message.reply(f"Ошибка при отправке трека {track.title}.")
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title
     artist_names = ', '.join(artist.name for artist in album.artists)
     await message.reply(f"Начинаю отправку треков из альбома: {album_name} - {artist_names}")
 
-    for volume in album.volumes:
-        for track in volume:
-            await send_track_to_user(track, message, is_album=True)
+    try:
+        for volume in album.volumes:
+            for track in volume:
+                # Используем буфер памяти для отправки трека
+                artist_names = ', '.join(artist.name for artist in track.artists)
+                track_filename = f"{artist_names} - {track.title}.mp3"
 
-    await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
+                try:
+                    # Скачиваем трек в буфер памяти
+                    buffer = io.BytesIO()
+                    track.download(buffer)
+                    buffer.seek(0)  # Возвращаемся в начало буфера
+
+                    # Отправляем трек
+                    audio_file = FSInputFile(buffer, filename=track_filename)
+                    await message.reply_document(audio_file)
+
+                except Exception as e:
+                    logging.error(f"Ошибка при отправке трека {track.title}: {e}")
+                    await message.reply(f"Ошибка при отправке трека {track.title}. Пропускаю...")
+
+        await message.reply(
+            f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
+    except Exception as e:
+        logging.error(f"Ошибка при отправке альбома {album_name}: {e}")
+        await message.reply(f"Ошибка при отправке альбома {album_name}. Попробуйте позже.")
+
 
 async def main():
     await dp.start_polling(bot)

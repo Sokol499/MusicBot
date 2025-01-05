@@ -8,8 +8,6 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
-from io import BytesIO
-from aiogram.types import InputFile
 
 import client
 
@@ -207,35 +205,20 @@ async def find_album(arg: str):
             return ym_client.albums_with_tracks(album.id)
         return None
 
-
 async def send_track_to_user(track, message: Message, is_album=False):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        # Скачиваем трек в BytesIO
-        file_buffer = BytesIO()
-        track.download(file_buffer)
-
-        # Проверка на пустой буфер
-        if file_buffer.getbuffer().nbytes == 0:
-            raise ValueError("Буфер пуст, трек не был загружен.")
-
-        file_buffer.seek(0)  # Возвращаем курсор в начало буфера
-
-        # Используем InputFile для передачи данных из BytesIO
-        audio_file = InputFile(file_buffer.getvalue(), filename=track_filename)
+        track.download(track_filename)
+        audio_file = FSInputFile(track_filename)
         await message.reply_document(audio_file)
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
-    except Exception as e:
-        # Подробный лог ошибки для отладки
-        logging.error(f"Ошибка при отправке трека '{track.title}': {type(e).__name__}: {e}")
-        await message.reply(f"Ошибка при отправке трека: {track.title}. Проверьте логи для деталей.")
     finally:
-        file_buffer.close()  # Закрываем поток
-
+        if os.path.exists(track_filename):
+            os.remove(track_filename)
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title
@@ -244,14 +227,9 @@ async def send_album_to_user(album, message: Message):
 
     for volume in album.volumes:
         for track in volume:
-            try:
-                await send_track_to_user(track, message, is_album=True)
-                await asyncio.sleep(0.5)  # Минимальная пауза для Telegram API
-            except Exception as e:
-                logging.error(f"Ошибка при отправке трека {track.title}: {e}")
+            await send_track_to_user(track, message, is_album=True)
 
     await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
-
 
 async def main():
     await dp.start_polling(bot)

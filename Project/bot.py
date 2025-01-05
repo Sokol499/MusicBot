@@ -212,22 +212,29 @@ async def send_track_to_user(track, message: Message, is_album=False):
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        # Создаем поток BytesIO
-        track_stream = BytesIO()
-        track.download(track_stream)
-        track_stream.seek(0)  # Возвращаем указатель в начало потока
+        # Скачиваем трек в BytesIO
+        file_buffer = BytesIO()
+        track.download(file_buffer)
 
-        # Отправляем файл через FSInputFile, используя BytesIO
-        audio_file = FSInputFile(track_stream, filename=track_filename)
+        # Проверяем, что трек был успешно загружен
+        if file_buffer.getbuffer().nbytes == 0:
+            raise ValueError("Буфер пуст, трек не был загружен.")
+
+        file_buffer.seek(0)  # Возвращаем курсор в начало буфера
+
+        # Передаем BytesIO с указанием имени файла
+        audio_file = FSInputFile(file_buffer, filename=track_filename)
         await message.reply_document(audio_file)
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
     except Exception as e:
-        logging.error(f"Ошибка при отправке трека {track.title}: {e}")
-        await message.reply(f"Ошибка при отправке трека: {track.title}")
+        # Подробный лог ошибки для отладки
+        logging.error(f"Ошибка при отправке трека '{track.title}': {type(e).__name__}: {e}")
+        await message.reply(f"Ошибка при отправке трека: {track.title}. Проверьте логи для деталей.")
     finally:
-        track_stream.close()  # Закрываем поток
+        file_buffer.close()  # Закрываем поток
+
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title

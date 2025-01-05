@@ -9,6 +9,7 @@ import yandex_music
 import os
 import asyncio
 from io import BytesIO
+from aiogram.types import InputFile
 
 import client
 
@@ -216,14 +217,14 @@ async def send_track_to_user(track, message: Message, is_album=False):
         file_buffer = BytesIO()
         track.download(file_buffer)
 
-        # Проверяем, что трек был успешно загружен
+        # Проверка на пустой буфер
         if file_buffer.getbuffer().nbytes == 0:
             raise ValueError("Буфер пуст, трек не был загружен.")
 
         file_buffer.seek(0)  # Возвращаем курсор в начало буфера
 
-        # Передаем BytesIO с указанием имени файла
-        audio_file = FSInputFile(file_buffer, filename=track_filename)
+        # Используем InputFile для передачи данных из BytesIO
+        audio_file = InputFile(file_buffer, filename=track_filename)
         await message.reply_document(audio_file)
 
         if not is_album:

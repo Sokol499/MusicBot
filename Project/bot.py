@@ -1,7 +1,7 @@
 import logging
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message, FSInputFile, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.filters import Command
+from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 import yandex_music
 import os
 import asyncio
@@ -16,34 +16,55 @@ bot = Bot(token=TOKEN_1)
 dp = Dispatcher()
 
 YANDEX_MUSIC_TOKEN = TOKEN
-
 ym_client = yandex_music.Client(YANDEX_MUSIC_TOKEN).init()
 
-# Главное меню кнопок
-def main_menu():
-    builder = InlineKeyboardBuilder()
-    builder.button(text="Найти трек", callback_data="find_track")
-    builder.button(text="Найти альбом", callback_data="find_album")
-    builder.button(text="Создать плейлист", callback_data="create_playlist")
-    builder.button(text="Добавить в плейлист", callback_data="add_to_playlist")
-    builder.button(text="Воспроизвести плейлист", callback_data="play_playlist")
-    builder.adjust(2)  # Устанавливаем 2 кнопки в строке
-    return builder.as_markup()
+# Создаем главное меню
+main_menu = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Найти трек", callback_data="find_track"),
+     InlineKeyboardButton(text="Найти альбом", callback_data="find_album")],
+    [InlineKeyboardButton(text="Создать плейлист", callback_data="create_playlist"),
+     InlineKeyboardButton(text="Добавить в плейлист", callback_data="add_to_playlist")],
+    [InlineKeyboardButton(text="Воспроизвести плейлист", callback_data="play_playlist")]
+])
 
-@dp.message(commands=["start", "help"])
+@dp.message(Command(commands=['start', 'help']))
 async def send_welcome(message: Message):
     await message.reply(
-        "Привет! Добро пожаловать в бота Яндекс Музыки! Выберите действие:",
-        reply_markup=main_menu()
+        "Привет! Я помогу тебе с музыкой из Яндекс Музыки. Выбери действие из меню ниже:",
+        reply_markup=main_menu
     )
 
-@dp.callback_query(lambda c: c.data == "find_track")
-async def callback_find_track(callback: CallbackQuery):
-    await callback.message.reply("Введите название или ссылку на трек:")
-    await callback.answer()
+@dp.callback_query()
+async def handle_menu(callback: CallbackQuery):
+    if callback.data == "find_track":
+        await callback.message.reply("Введите название или ссылку на трек.")
+    elif callback.data == "find_album":
+        await callback.message.reply("Введите название или ссылку на альбом.")
+    elif callback.data == "create_playlist":
+        await callback.message.reply("Введите имя нового плейлиста.")
+    elif callback.data == "add_to_playlist":
+        await callback.message.reply("Введите название трека и плейлиста в формате:\n<название трека>, <название плейлиста>")
+    elif callback.data == "play_playlist":
+        await callback.message.reply("Введите имя плейлиста для воспроизведения.")
 
-@dp.message(lambda message: message.reply_to_message and "Введите название или ссылку на трек:" in message.reply_to_message.text)
-async def get_track(message: Message):
+@dp.message()
+async def handle_user_input(message: Message):
+    if message.reply_to_message:
+        context = message.reply_to_message.text
+        if "Введите название или ссылку на трек" in context:
+            await process_find_track(message)
+        elif "Введите название или ссылку на альбом" in context:
+            await process_find_album(message)
+        elif "Введите имя нового плейлиста" in context:
+            await process_create_playlist(message)
+        elif "Введите название трека и плейлиста" in context:
+            await process_add_to_playlist(message)
+        elif "Введите имя плейлиста для воспроизведения" in context:
+            await process_play_playlist(message)
+    else:
+        await message.reply("Выберите действие через меню.", reply_markup=main_menu)
+
+async def process_find_track(message: Message):
     arg = message.text
     if not arg:
         await message.reply("Пожалуйста, укажите название или ссылку на трек.")
@@ -63,13 +84,7 @@ async def get_track(message: Message):
         await message.reply("Произошла ошибка при загрузке трека.")
         logging.error(f"Ошибка при загрузке трека: {e}")
 
-@dp.callback_query(lambda c: c.data == "find_album")
-async def callback_find_album(callback: CallbackQuery):
-    await callback.message.reply("Введите название или ссылку на альбом:")
-    await callback.answer()
-
-@dp.message(lambda message: message.reply_to_message and "Введите название или ссылку на альбом:" in message.reply_to_message.text)
-async def get_album(message: Message):
+async def process_find_album(message: Message):
     arg = message.text
     if not arg:
         await message.reply("Пожалуйста, укажите название или ссылку на альбом.")
@@ -89,16 +104,10 @@ async def get_album(message: Message):
         await message.reply("Произошла ошибка при загрузке альбома.")
         logging.error(f"Ошибка при загрузке альбома: {e}")
 
-@dp.callback_query(lambda c: c.data == "create_playlist")
-async def callback_create_playlist(callback: CallbackQuery):
-    await callback.message.reply("Введите имя для нового плейлиста:")
-    await callback.answer()
-
-@dp.message(lambda message: message.reply_to_message and "Введите имя для нового плейлиста:" in message.reply_to_message.text)
-async def create_playlist(message: Message):
+async def process_create_playlist(message: Message):
     playlist_name = message.text
     if not playlist_name:
-        await message.reply("Имя плейлиста не может быть пустым. Введите имя плейлиста.")
+        await message.reply("Введите имя плейлиста.")
         return
 
     try:
@@ -106,55 +115,40 @@ async def create_playlist(message: Message):
         await message.reply(f"Плейлист '{playlist_name}' успешно создан!")
     except Exception as e:
         logging.error(f"Ошибка при создании плейлиста: {e}")
-        await message.reply("Произошла ошибка при создании плейлиста. Попробуйте ещё раз позже.")
+        await message.reply("Произошла ошибка при создании плейлиста. Попробуйте позже.")
 
-@dp.callback_query(lambda c: c.data == "add_to_playlist")
-async def callback_add_to_playlist(callback: CallbackQuery):
-    await callback.message.reply("Введите данные в формате: <название песни>, <название плейлиста>")
-    await callback.answer()
-
-@dp.message(lambda message: message.reply_to_message and "<название песни>, <название плейлиста>" in message.reply_to_message.text)
-async def add_to_playlist(message: Message):
+async def process_add_to_playlist(message: Message):
     args = message.text
-    if not args or "," not in args:
-        await message.reply("Формат данных некорректен. Введите данные в формате: <название песни>, <название плейлиста>.")
+    if not args or len(args.split(",", 1)) < 2:
+        await message.reply("Использование: <название трека>, <название плейлиста>")
         return
 
     try:
         song_name, playlist_name = map(str.strip, args.split(",", maxsplit=1))
-
         track = await find_track(song_name)
         if not track:
             await message.reply(f"Трек '{song_name}' не найден в Яндекс Музыке.")
             return
 
         song_author = ', '.join(artist.name for artist in track.artists)
-
         response = client.add_song_to_playlist(song_author, track.title, playlist_name)
 
         if response:
             await message.reply(f"Песня '{track.title}' от '{song_author}' добавлена в плейлист '{playlist_name}'!")
         else:
-            await message.reply(f"Не удалось добавить песню '{track.title}' от '{song_author}' в плейлист '{playlist_name}'.")
+            await message.reply(f"Не удалось добавить песню '{track.title}' в плейлист '{playlist_name}'.")
     except Exception as e:
         logging.error(f"Ошибка при добавлении трека в плейлист: {e}")
-        await message.reply(f"Произошла ошибка при добавлении песни в плейлист. Попробуйте снова позже.")
+        await message.reply("Произошла ошибка. Попробуйте снова позже.")
 
-@dp.callback_query(lambda c: c.data == "play_playlist")
-async def callback_play_playlist(callback: CallbackQuery):
-    await callback.message.reply("Введите имя плейлиста для воспроизведения:")
-    await callback.answer()
-
-@dp.message(lambda message: message.reply_to_message and "Введите имя плейлиста для воспроизведения:" in message.reply_to_message.text)
-async def play_playlist(message: Message):
+async def process_play_playlist(message: Message):
     playlist_name = message.text
     if not playlist_name:
-        await message.reply("Имя плейлиста не может быть пустым. Введите имя плейлиста.")
+        await message.reply("Введите имя плейлиста.")
         return
 
     try:
         response = client.print_playlist(playlist_name)
-
         if "не найден" in response or "пуст" in response:
             await message.reply(response)
             return
@@ -168,7 +162,7 @@ async def play_playlist(message: Message):
 
             track = await find_track(song_name)
             if not track:
-                await message.reply(f"Трек '{song_name}' не найден в Яндекс.Музыке. Пропускаю...")
+                await message.reply(f"Трек '{song_name}' не найден. Пропускаю...")
                 continue
 
             await send_track_to_user(track, message)
@@ -206,9 +200,7 @@ async def send_track_to_user(track, message: Message, is_album=False):
         await message.reply_document(audio_file)
 
         if not is_album:
-            await message.reply(
-                f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота"
-            )
+            await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
     finally:
         await asyncio.sleep(5)
         if os.path.exists(track_filename):
@@ -224,9 +216,7 @@ async def send_album_to_user(album, message: Message):
             await send_track_to_user(track, message, is_album=True)
             await asyncio.sleep(2)
 
-    await message.reply(
-        f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота"
-    )
+    await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
 
 async def main():
     await dp.start_polling(bot)

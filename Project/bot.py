@@ -30,20 +30,25 @@ def main_menu():
     builder.adjust(2)  # Устанавливаем 2 кнопки в строке
     return builder.as_markup()
 
-@dp.message()
+@dp.message(commands=["start", "help"])
 async def send_welcome(message: Message):
     await message.reply(
-        "Привет! Добро пожаловать в бота! Выберите действие:",
+        "Привет! Добро пожаловать в бота Яндекс Музыки! Выберите действие:",
         reply_markup=main_menu()
     )
 
 @dp.callback_query(lambda c: c.data == "find_track")
 async def callback_find_track(callback: CallbackQuery):
     await callback.message.reply("Введите название или ссылку на трек:")
+    await callback.answer()
 
 @dp.message(lambda message: message.reply_to_message and "Введите название или ссылку на трек:" in message.reply_to_message.text)
 async def get_track(message: Message):
     arg = message.text
+    if not arg:
+        await message.reply("Пожалуйста, укажите название или ссылку на трек.")
+        return
+
     await message.reply("Поиск трека, пожалуйста, подождите...")
 
     try:
@@ -61,10 +66,15 @@ async def get_track(message: Message):
 @dp.callback_query(lambda c: c.data == "find_album")
 async def callback_find_album(callback: CallbackQuery):
     await callback.message.reply("Введите название или ссылку на альбом:")
+    await callback.answer()
 
 @dp.message(lambda message: message.reply_to_message and "Введите название или ссылку на альбом:" in message.reply_to_message.text)
 async def get_album(message: Message):
     arg = message.text
+    if not arg:
+        await message.reply("Пожалуйста, укажите название или ссылку на альбом.")
+        return
+
     await message.reply("Поиск альбома, пожалуйста, подождите...")
 
     try:
@@ -82,10 +92,14 @@ async def get_album(message: Message):
 @dp.callback_query(lambda c: c.data == "create_playlist")
 async def callback_create_playlist(callback: CallbackQuery):
     await callback.message.reply("Введите имя для нового плейлиста:")
+    await callback.answer()
 
 @dp.message(lambda message: message.reply_to_message and "Введите имя для нового плейлиста:" in message.reply_to_message.text)
 async def create_playlist(message: Message):
     playlist_name = message.text
+    if not playlist_name:
+        await message.reply("Имя плейлиста не может быть пустым. Введите имя плейлиста.")
+        return
 
     try:
         response = client.add_playlist(playlist_name)
@@ -97,10 +111,14 @@ async def create_playlist(message: Message):
 @dp.callback_query(lambda c: c.data == "add_to_playlist")
 async def callback_add_to_playlist(callback: CallbackQuery):
     await callback.message.reply("Введите данные в формате: <название песни>, <название плейлиста>")
+    await callback.answer()
 
 @dp.message(lambda message: message.reply_to_message and "<название песни>, <название плейлиста>" in message.reply_to_message.text)
 async def add_to_playlist(message: Message):
     args = message.text
+    if not args or "," not in args:
+        await message.reply("Формат данных некорректен. Введите данные в формате: <название песни>, <название плейлиста>.")
+        return
 
     try:
         song_name, playlist_name = map(str.strip, args.split(",", maxsplit=1))
@@ -125,10 +143,14 @@ async def add_to_playlist(message: Message):
 @dp.callback_query(lambda c: c.data == "play_playlist")
 async def callback_play_playlist(callback: CallbackQuery):
     await callback.message.reply("Введите имя плейлиста для воспроизведения:")
+    await callback.answer()
 
 @dp.message(lambda message: message.reply_to_message and "Введите имя плейлиста для воспроизведения:" in message.reply_to_message.text)
 async def play_playlist(message: Message):
     playlist_name = message.text
+    if not playlist_name:
+        await message.reply("Имя плейлиста не может быть пустым. Введите имя плейлиста.")
+        return
 
     try:
         response = client.print_playlist(playlist_name)

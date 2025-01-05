@@ -82,6 +82,8 @@ async def process_find_track(message: Message, state: FSMContext):
     except Exception as e:
         await message.reply("Произошла ошибка при загрузке трека.")
         logging.error(f"Ошибка при загрузке трека: {e}")
+    finally:
+        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
 @dp.message(F.text, MusicStates.FIND_ALBUM)
 async def process_find_album(message: Message, state: FSMContext):
@@ -103,6 +105,8 @@ async def process_find_album(message: Message, state: FSMContext):
     except Exception as e:
         await message.reply("Произошла ошибка при загрузке альбома.")
         logging.error(f"Ошибка при загрузке альбома: {e}")
+    finally:
+        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
 @dp.message(F.text, MusicStates.CREATE_PLAYLIST)
 async def process_create_playlist(message: Message, state: FSMContext):
@@ -118,6 +122,8 @@ async def process_create_playlist(message: Message, state: FSMContext):
     except Exception as e:
         logging.error(f"Ошибка при создании плейлиста: {e}")
         await message.reply("Произошла ошибка при создании плейлиста. Попробуйте позже.")
+    finally:
+        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
 @dp.message(F.text, MusicStates.ADD_TO_PLAYLIST)
 async def process_add_to_playlist(message: Message, state: FSMContext):
@@ -144,6 +150,8 @@ async def process_add_to_playlist(message: Message, state: FSMContext):
     except Exception as e:
         logging.error(f"Ошибка при добавлении трека в плейлист: {e}")
         await message.reply("Произошла ошибка. Попробуйте снова позже.")
+    finally:
+        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
 @dp.message(F.text, MusicStates.PLAY_PLAYLIST)
 async def process_play_playlist(message: Message, state: FSMContext):
@@ -175,10 +183,8 @@ async def process_play_playlist(message: Message, state: FSMContext):
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
-
-
-def parse_user_input(message: Message) -> str:
-    return message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
+    finally:
+        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
 async def find_track(arg: str):
     if "music.yandex.ru" in arg:
@@ -211,7 +217,6 @@ async def send_track_to_user(track, message: Message, is_album=False):
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
     finally:
-        await asyncio.sleep(5)
         if os.path.exists(track_filename):
             os.remove(track_filename)
 
@@ -223,7 +228,6 @@ async def send_album_to_user(album, message: Message):
     for volume in album.volumes:
         for track in volume:
             await send_track_to_user(track, message, is_album=True)
-            await asyncio.sleep(2)
 
     await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
 

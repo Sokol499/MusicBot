@@ -8,7 +8,6 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
-import aiohttp
 
 import client
 
@@ -206,7 +205,6 @@ async def find_album(arg: str):
             return ym_client.albums_with_tracks(album.id)
         return None
 
-"""
 async def send_track_to_user(track, message: Message, is_album=False):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
@@ -221,23 +219,7 @@ async def send_track_to_user(track, message: Message, is_album=False):
     finally:
         if os.path.exists(track_filename):
             os.remove(track_filename)
-   
-"""
 
-async def send_track_to_user(track, message: Message, is_album=False):
-    artist_names = ', '.join(artist.name for artist in track.artists)
-    track_url = track.download_url
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(track_url, headers={'Authorization': f'OAuth {YANDEX_MUSIC_TOKEN}'}) as resp:
-            if resp.status == 200:
-                await message.reply_document(resp.content)
-                if not is_album:
-                    await message.reply(f"Трек {artist_names} - {track.title} был отправлен!")
-            else:
-                await message.reply(f"Ошибка при загрузке трека: {resp.status}")
-
-"""
 async def send_album_to_user(album, message: Message):
     album_name = album.title
     artist_names = ', '.join(artist.name for artist in album.artists)
@@ -248,7 +230,6 @@ async def send_album_to_user(album, message: Message):
             await send_track_to_user(track, message, is_album=True)
 
     await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
-"""
 
 async def main():
     await dp.start_polling(bot)

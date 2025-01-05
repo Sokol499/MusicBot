@@ -224,7 +224,7 @@ async def send_track_to_user(track, message: Message, is_album=False):
         file_buffer.seek(0)  # Возвращаем курсор в начало буфера
 
         # Используем InputFile для передачи данных из BytesIO
-        audio_file = InputFile(file_buffer, filename=track_filename)
+        audio_file = InputFile(file_buffer.getvalue(), filename=track_filename)
         await message.reply_document(audio_file)
 
         if not is_album:

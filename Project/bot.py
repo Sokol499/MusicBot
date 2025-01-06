@@ -10,9 +10,7 @@ import os
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
-
 import client
-
 from config import TOKEN, TOKEN_1
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +21,11 @@ dp = Dispatcher(storage=MemoryStorage())
 YANDEX_MUSIC_TOKEN = TOKEN
 ym_client = yandex_music.Client(YANDEX_MUSIC_TOKEN).init()
 
-# Создаем главное меню
+executor = ThreadPoolExecutor(max_workers=5)
+
+track_cache = {}
+album_cache = {}
+
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Найти трек", callback_data="find_track"),
      InlineKeyboardButton(text="Найти альбом", callback_data="find_album")],
@@ -155,7 +157,6 @@ async def process_add_to_playlist(message: Message, state: FSMContext):
     finally:
         await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
-
 @dp.message(F.text, MusicStates.PLAY_PLAYLIST)
 async def process_play_playlist(message: Message, state: FSMContext):
     await state.clear()
@@ -172,15 +173,13 @@ async def process_play_playlist(message: Message, state: FSMContext):
 
         await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
 
-        song_lines = response.split("\n")[1:]  # Разделение строк плейлиста
-        tasks = []  # Список задач для загрузки и отправки треков
+        song_lines = response.split("\n")[1:]
+        tasks = []
 
         for i, song_line in enumerate(song_lines, start=1):
-            song_name = song_line.split(". ")[-1]  # Извлечение названия трека
-            # Добавляем задачу в список
+            song_name = song_line.split(". ")[-1]
             tasks.append(handle_track(song_name, message, i))
 
-        # Выполняем все задачи параллельно
         await asyncio.gather(*tasks)
 
     except Exception as e:
@@ -188,7 +187,6 @@ async def process_play_playlist(message: Message, state: FSMContext):
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
     finally:
         await message.reply("Выберите следующее действие:", reply_markup=main_menu)
-
 
 async def handle_track(song_name, message: Message, track_number: int):
     try:
@@ -203,43 +201,55 @@ async def handle_track(song_name, message: Message, track_number: int):
         logging.error(f"Ошибка при обработке трека '{song_name}': {e}")
         await message.reply(f"Ошибка при обработке трека '{song_name}'. Пропускаю...")
 
-
-
 async def find_track(arg: str):
+    if arg in track_cache:
+        return track_cache[arg]
+
     if "music.yandex.ru" in arg:
         track_id = arg.split("/")[-1].split("?")[0]
-        return await run_in_thread(ym_client.tracks, [track_id])[0]
+        track = await run_in_executor(ym_client.tracks, [track_id])[0]
     else:
-        search_results = await run_in_thread(ym_client.search, arg)
-        return search_results.best.result if search_results.best else None
+        search_results = await run_in_executor(ym_client.search, arg)
+        track = search_results.best.result if search_results.best else None
+
+    if track:
+        track_cache[arg] = track
+
+    return track
 
 async def find_album(arg: str):
+    if arg in album_cache:
+        return album_cache[arg]
+
     if "music.yandex.ru" in arg:
         album_id = arg.split("/")[-1].split("?")[0]
-        return await run_in_thread(ym_client.albums_with_tracks, album_id)
+        album = await run_in_executor(ym_client.albums_with_tracks, album_id)
     else:
-        search_results = await run_in_thread(ym_client.search, arg)
+        search_results = await run_in_executor(ym_client.search, arg)
         if search_results.albums:
             album = search_results.albums.results[0]
-            return await run_in_thread(ym_client.albums_with_tracks, album.id)
-        return None
+            album = await run_in_executor(ym_client.albums_with_tracks, album.id)
+        else:
+            album = None
+
+    if album:
+        album_cache[arg] = album
+
+    return album
 
 async def send_track_to_user(track, message: Message, is_album=False):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
 
-    # Используем временную директорию
     with TemporaryDirectory() as tempdir:
         temp_path = os.path.join(tempdir, track_filename)
-        await run_in_thread(track.download, temp_path)  # Скачиваем трек
+        await run_in_executor(track.download, temp_path)
 
-        # Отправляем файл пользователю
         audio_file = FSInputFile(temp_path)
         await message.reply_document(audio_file)
 
     if not is_album:
         await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
-
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title
@@ -251,18 +261,13 @@ async def send_album_to_user(album, message: Message):
         for track in volume:
             tasks.append(send_track_to_user(track, message, is_album=True))
 
-    await asyncio.gather(*tasks)  # Параллельная отправка всех треков
+    await asyncio.gather(*tasks)
 
     await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
 
-
-
-# Асинхронная обертка для синхронных функций
-def run_in_thread(func, *args):
-    return asyncio.get_running_loop().run_in_executor(None, func, *args)
-
-
-
+async def run_in_executor(func, *args):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, func, *args)
 
 async def main():
     await dp.start_polling(bot)

@@ -8,7 +8,7 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
-from aiofiles import open as aio_open
+from io import BytesIO
 
 import client
 
@@ -212,18 +212,19 @@ async def send_track_to_user(track, message: Message, is_album=False):
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        # Загрузка файла в асинхронном режиме
-        await asyncio.to_thread(track.download, track_filename)
+        # Создаем поток данных
+        track_data = BytesIO()
+        await asyncio.to_thread(track.download, track_data)
+        track_data.seek(0)
 
-        # Асинхронная отправка файла
-        async with aio_open(track_filename, 'rb') as audio_file:
-            await message.reply_document(FSInputFile(audio_file, track_filename))
+        # Отправляем трек как поток
+        await message.reply_document(FSInputFile(track_data, track_filename))
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
-    finally:
-        if os.path.exists(track_filename):
-            os.remove(track_filename)
+    except Exception as e:
+        logging.error(f"Ошибка при отправке трека: {e}")
+        await message.reply(f"Ошибка при отправке трека: {e}")
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title

@@ -219,6 +219,7 @@ async def send_track_to_user(track, message: Message, is_album=False):
         async with aiofiles.open(track_filename, 'rb') as f:
             audio_file = FSInputFile(f, filename=track_filename)
             await message.reply_document(audio_file)
+            await asyncio.sleep(0.5)  # Задержка между отправками
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")

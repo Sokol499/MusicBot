@@ -8,7 +8,6 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
-from io import BytesIO
 
 import client
 
@@ -22,7 +21,6 @@ dp = Dispatcher(storage=MemoryStorage())
 YANDEX_MUSIC_TOKEN = TOKEN
 ym_client = yandex_music.Client(YANDEX_MUSIC_TOKEN).init()
 
-# Создаем главное меню
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Найти трек", callback_data="find_track"),
      InlineKeyboardButton(text="Найти альбом", callback_data="find_album")],
@@ -41,7 +39,7 @@ class MusicStates(StatesGroup):
 @dp.message(Command(commands=['start', 'help']))
 async def send_welcome(message: Message):
     await message.reply(
-        "Привет! Я помогу тебе с музыкой из Яндекс Музыки. Выбери действие из меню ниже:",
+        "Привет! Я могу выгрузить трек, нужные тебе. Выбери действие из меню ниже:",
         reply_markup=main_menu
     )
 
@@ -206,25 +204,20 @@ async def find_album(arg: str):
             return ym_client.albums_with_tracks(album.id)
         return None
 
-
 async def send_track_to_user(track, message: Message, is_album=False):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        # Создаем поток данных
-        track_data = BytesIO()
-        await asyncio.to_thread(track.download, track_data)
-        track_data.seek(0)
-
-        # Отправляем трек как поток
-        await message.reply_document(FSInputFile(track_data, track_filename))
+        track.download(track_filename)
+        audio_file = FSInputFile(track_filename)
+        await message.reply_document(audio_file)
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
-    except Exception as e:
-        logging.error(f"Ошибка при отправке трека: {e}")
-        await message.reply(f"Ошибка при отправке трека: {e}")
+    finally:
+        if os.path.exists(track_filename):
+            os.remove(track_filename)
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title
@@ -236,7 +229,6 @@ async def send_album_to_user(album, message: Message):
             await send_track_to_user(track, message, is_album=True)
 
     await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
-
 
 async def main():
     await dp.start_polling(bot)

@@ -8,6 +8,7 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
+import tempfile
 
 import client
 
@@ -161,7 +162,7 @@ async def process_play_playlist(message: Message, state: FSMContext):
         return
 
     try:
-        response = client.print_playlist(playlist_name)
+        response = await asyncio.to_thread(client.print_playlist, playlist_name)  # Асинхронный вызов синхронной функции
         if "не найден" in response or "пуст" in response:
             await message.reply(response)
             return
@@ -173,25 +174,46 @@ async def process_play_playlist(message: Message, state: FSMContext):
             song_name = song_line.split(". ")[-1]
             await message.reply(f"Обработка трека №{i}: {song_name}")
 
-            track = await find_track(song_name)
+            track = await find_track(song_name)  # Асинхронный поиск трека
             if not track:
                 await message.reply(f"Трек '{song_name}' не найден. Пропускаю...")
                 continue
 
-            await send_track_to_user(track, message)
+            await send_track_to_user(track, message)  # Асинхронная отправка трека
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
     finally:
         await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
+
+
+def _find_track_by_url(arg: str):
+    track_id = arg.split("/")[-1].split("?")[0]
+    return ym_client.tracks([track_id])[0]
+
+def _find_track_by_name(arg: str):
+    search_results = ym_client.search(arg)
+    return search_results.best.result if search_results.best else None
+
 async def find_track(arg: str):
-    if "music.yandex.ru" in arg:
-        track_id = arg.split("/")[-1].split("?")[0]
-        return ym_client.tracks([track_id])[0]
-    else:
-        search_results = ym_client.search(arg)
-        return search_results.best.result if search_results.best else None
+    """
+    Поиск трека по ссылке или названию асинхронно.
+
+    :param arg: Название трека или ссылка на него.
+    :return: Объект трека или None.
+    """
+    try:
+        if "music.yandex.ru" in arg:
+            # Асинхронный вызов синхронного метода
+            return await asyncio.to_thread(_find_track_by_url, arg)
+        else:
+            # Асинхронный поиск по названию
+            return await asyncio.to_thread(_find_track_by_name, arg)
+    except Exception as e:
+        logging.error(f"Неизвестная ошибка при поиске трека: {e}")
+        return None
+
 
 async def find_album(arg: str):
     if "music.yandex.ru" in arg:
@@ -204,20 +226,35 @@ async def find_album(arg: str):
             return ym_client.albums_with_tracks(album.id)
         return None
 
+
 async def send_track_to_user(track, message: Message, is_album=False):
+    """
+    Отправка трека пользователю.
+
+    :param track: Трек для отправки.
+    :param message: Сообщение от пользователя.
+    :param is_album: Флаг, если это альбом.
+    """
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        track.download(track_filename)
-        audio_file = FSInputFile(track_filename)
-        await message.reply_document(audio_file)
+        # Создаем временный файл
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+            tmp_file.close()  # Закрываем файл, чтобы можно было его загрузить.
+            track.download(tmp_file.name)  # Скачиваем трек в файл
+
+            # Отправляем файл пользователю
+            audio_file = FSInputFile(tmp_file.name)
+            await message.reply_document(audio_file)
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
     finally:
-        if os.path.exists(track_filename):
-            os.remove(track_filename)
+        # Удаляем временный файл после отправки
+        if os.path.exists(tmp_file.name):
+            os.remove(tmp_file.name)
+
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title

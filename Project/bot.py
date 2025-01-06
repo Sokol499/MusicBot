@@ -8,6 +8,7 @@ from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyb
 import yandex_music
 import os
 import asyncio
+import aiofiles
 
 import client
 
@@ -205,14 +206,19 @@ async def find_album(arg: str):
             return ym_client.albums_with_tracks(album.id)
         return None
 
+
 async def send_track_to_user(track, message: Message, is_album=False):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
 
     try:
-        track.download(track_filename)
-        audio_file = FSInputFile(track_filename)
-        await message.reply_document(audio_file)
+        # Асинхронная загрузка трека
+        await asyncio.to_thread(track.download, track_filename)
+
+        # Асинхронное чтение файла
+        async with aiofiles.open(track_filename, 'rb') as f:
+            audio_file = FSInputFile(f, filename=track_filename)
+            await message.reply_document(audio_file)
 
         if not is_album:
             await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
@@ -225,11 +231,16 @@ async def send_album_to_user(album, message: Message):
     artist_names = ', '.join(artist.name for artist in album.artists)
     await message.reply(f"Начинаю отправку треков из альбома: {album_name} - {artist_names}")
 
+    tasks = []  # Список задач для параллельной обработки
     for volume in album.volumes:
         for track in volume:
-            await send_track_to_user(track, message, is_album=True)
+            tasks.append(send_track_to_user(track, message, is_album=True))
+
+    # Параллельная отправка всех треков
+    await asyncio.gather(*tasks)
 
     await message.reply(f"Альбом {artist_names} - {album_name} был отправлен полностью!\nСпасибо за использование бота")
+
 
 async def main():
     await dp.start_polling(bot)

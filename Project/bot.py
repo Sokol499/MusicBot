@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, InputMediaAudio
 import yandex_music
 import os
 import asyncio
@@ -175,9 +175,31 @@ async def process_play_playlist(message: Message, state: FSMContext):
             return
 
         song_lines = response.split("\n")[1:]
-        all_songs = "\n".join(song_lines)
-        await message.reply(f"Плейлист '{playlist_name}' успешно выгружен:\n{all_songs}")
+        media_group = []
 
+        with TemporaryDirectory() as tempdir:
+            for song_line in song_lines:
+                song_name = song_line.split(". ")[-1]
+                track = await find_track(song_name)
+                if not track:
+                    logging.warning(f"Трек '{song_name}' не найден. Пропускаю...")
+                    continue
+
+                artist_names = ', '.join(artist.name for artist in track.artists)
+                track_filename = f"{artist_names} - {track.title}.mp3"
+                temp_path = os.path.join(tempdir, track_filename)
+                await run_in_executor(track.download, temp_path)
+
+                media_group.append(InputMediaAudio(
+                    media=FSInputFile(temp_path),
+                    title=f"{artist_names} - {track.title}"
+                ))
+
+            if media_group:
+                await message.reply(f"Плейлист '{playlist_name}' успешно выгружен:")
+                await bot.send_media_group(chat_id=message.chat.id, media=media_group)
+            else:
+                await message.reply(f"Треки из плейлиста '{playlist_name}' не удалось выгрузить.")
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")

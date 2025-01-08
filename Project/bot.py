@@ -175,36 +175,31 @@ async def process_play_playlist(message: Message, state: FSMContext):
             return
 
         song_lines = response.split("\n")[1:]
-        media_group = []
+        audio_files = []
 
-        with TemporaryDirectory() as tempdir:
-            for song_line in song_lines:
-                song_name = song_line.split(". ")[-1]
+        for song_line in song_lines:
+            song_name = song_line.split(". ")[-1]
+            try:
                 track = await find_track(song_name)
-                if not track:
-                    logging.warning(f"Трек '{song_name}' не найден. Пропускаю...")
-                    continue
+                if track:
+                    with TemporaryDirectory() as tempdir:
+                        temp_path = os.path.join(tempdir, f"{track.artists[0].name} - {track.title}.mp3")
+                        await run_in_executor(track.download, temp_path)
+                        audio_files.append(FSInputFile(temp_path))
+            except Exception as e:
+                logging.error(f"Ошибка при загрузке трека '{song_name}': {e}")
+                continue
 
-                artist_names = ', '.join(artist.name for artist in track.artists)
-                track_filename = f"{artist_names} - {track.title}.mp3"
-                temp_path = os.path.join(tempdir, track_filename)
-                await run_in_executor(track.download, temp_path)
+        if audio_files:
+            media_group = [types.InputMediaAudio(media=file) for file in audio_files]
+            await message.answer_media_group(media_group)
+            await message.reply(f"Плейлист '{playlist_name}' успешно выгружен.")
+        else:
+            await message.reply(f"Не удалось загрузить треки из плейлиста '{playlist_name}'.")
 
-                media_group.append(InputMediaAudio(
-                    media=FSInputFile(temp_path),
-                    title=f"{artist_names} - {track.title}"
-                ))
-
-            if media_group:
-                await message.reply(f"Плейлист '{playlist_name}' успешно выгружен:")
-                await bot.send_media_group(chat_id=message.chat.id, media=media_group)
-            else:
-                await message.reply(f"Треки из плейлиста '{playlist_name}' не удалось выгрузить.")
     except Exception as e:
-        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
-    finally:
-        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
+        await message.reply(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
 
 
 async def find_track(arg: str):

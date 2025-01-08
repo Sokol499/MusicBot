@@ -174,15 +174,17 @@ async def process_play_playlist(message: Message, state: FSMContext):
             await message.reply(response)
             return
 
+        await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
+
         song_lines = response.split("\n")[1:]
         tasks = []
 
-        for song_line in song_lines:
+        for i, song_line in enumerate(song_lines, start=1):
             song_name = song_line.split(". ")[-1]
-            tasks.append(handle_track(song_name, message))
+            tasks.append(handle_track(song_name, message, i))
 
         await asyncio.gather(*tasks)
-        await message.reply(f"Плейлист {playlist_name} успешно выгружен")
+
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")

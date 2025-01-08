@@ -176,11 +176,13 @@ async def process_play_playlist(message: Message, state: FSMContext):
 
         await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
 
-        song_lines = response.split("\n")[1:]
+        song_lines = [line for line in response.split("\n")[1:] if line.strip()]
         tasks = []
 
         for i, song_line in enumerate(song_lines, start=1):
-            song_name = song_line.split(". ")[-1]
+            song_name = song_line.split(". ")[-1].strip()
+            if not song_name:
+                continue
             tasks.append(handle_track(song_name, message, i))
 
         await asyncio.gather(*tasks)
@@ -192,15 +194,14 @@ async def process_play_playlist(message: Message, state: FSMContext):
         await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
 
-async def handle_track(song_name, message: Message, track_number: int):
+async def handle_track(song_name, message: Message):
     try:
-        await message.reply(f"Обработка трека №{track_number}: {song_name}")
         track = await find_track(song_name)
         if not track:
             await message.reply(f"Трек '{song_name}' не найден. Пропускаю...")
             return
 
-        await send_track_to_user(track, message)
+        await send_track_to_user(track, message, is_album=False, show_thank_you=False)
     except Exception as e:
         logging.error(f"Ошибка при обработке трека '{song_name}': {e}")
         await message.reply(f"Ошибка при обработке трека '{song_name}'. Пропускаю...")
@@ -241,7 +242,7 @@ async def find_album(arg: str):
 
     return album
 
-async def send_track_to_user(track, message: Message, is_album=False):
+async def send_track_to_user(track, message: Message, is_album=False, show_thank_you=True):
     artist_names = ', '.join(artist.name for artist in track.artists)
     track_filename = f"{artist_names} - {track.title}.mp3"
 
@@ -252,8 +253,11 @@ async def send_track_to_user(track, message: Message, is_album=False):
         audio_file = FSInputFile(temp_path)
         await message.reply_document(audio_file)
 
-    if not is_album:
-        await message.reply(f"Трек {artist_names} - {track.title} был отправлен!\nСпасибо за использование бота")
+    if not is_album and show_thank_you:
+        await message.reply(f"Трек {artist_names} - {track.title} был отправлен!")
+
+    if show_thank_you:
+        await message.reply("Спасибо за использование бота")
 
 async def send_album_to_user(album, message: Message):
     album_name = album.title
@@ -263,7 +267,7 @@ async def send_album_to_user(album, message: Message):
     tasks = []
     for volume in album.volumes:
         for track in volume:
-            tasks.append(send_track_to_user(track, message, is_album=True))
+            tasks.append(send_track_to_user(track, message, is_album=True, show_thank_you=False))
 
     await asyncio.gather(*tasks)
 

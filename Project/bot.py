@@ -124,7 +124,7 @@ async def process_create_playlist(message: Message, state: FSMContext):
         return
 
     try:
-        playlists.append(playlist_name)
+        client.add_playlist(playlist_name)
         await message.reply(f"Плейлист '{playlist_name}' успешно создан!")
     except Exception as e:
         logging.error(f"Ошибка при создании плейлиста: {e}")
@@ -188,6 +188,7 @@ async def process_play_playlist(message: Message, state: FSMContext):
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
     finally:
         await message.reply("Выберите следующее действие:", reply_markup=main_menu)
+
 
 async def handle_track(song_name, message: Message, track_number: int):
     try:

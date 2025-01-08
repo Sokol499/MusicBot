@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, InputMediaAudio
+from aiogram.types import Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 import yandex_music
 import os
 import asyncio
@@ -27,7 +27,6 @@ track_cache = {}
 album_cache = {}
 playlists = []
 
-
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Найти трек", callback_data="find_track"),
      InlineKeyboardButton(text="Найти альбом", callback_data="find_album")],
@@ -44,10 +43,10 @@ class MusicStates(StatesGroup):
     ADD_TO_PLAYLIST = State()
     PLAY_PLAYLIST = State()
 
-@dp.message(Command(commands=['start']))
+@dp.message(Command(commands=['start', 'help']))
 async def send_welcome(message: Message):
     await message.reply(
-        "Привет! Выбери действие из меню ниже:",
+        "Привет! Я помогу тебе с музыкой из Яндекс Музыки. Выбери действие из меню ниже:",
         reply_markup=main_menu
     )
 
@@ -70,8 +69,9 @@ async def handle_menu(callback: CallbackQuery, state: FSMContext):
         await state.set_state(MusicStates.PLAY_PLAYLIST)
     elif callback.data == "finish_work":
         playlist_list = ", ".join(playlists) if playlists else "нет созданных плейлистов"
-        await callback.message.reply(f"Спасибо за использование бота!\nДоступные плейлисты: {playlist_list}")
-
+        await callback.message.reply(
+            f"Спасибо за использование бота!\nДоступные плейлисты: {playlist_list}"
+        )
 
 @dp.message(F.text, MusicStates.FIND_TRACK)
 async def process_find_track(message: Message, state: FSMContext):
@@ -175,32 +175,32 @@ async def process_play_playlist(message: Message, state: FSMContext):
             return
 
         song_lines = response.split("\n")[1:]
-        audio_files = []
+        tasks = []
 
         for song_line in song_lines:
             song_name = song_line.split(". ")[-1]
-            try:
-                track = await find_track(song_name)
-                if track:
-                    with TemporaryDirectory() as tempdir:
-                        temp_path = os.path.join(tempdir, f"{track.artists[0].name} - {track.title}.mp3")
-                        await run_in_executor(track.download, temp_path)
-                        audio_files.append(FSInputFile(temp_path))
-            except Exception as e:
-                logging.error(f"Ошибка при загрузке трека '{song_name}': {e}")
-                continue
+            tasks.append(handle_track(song_name, message))
 
-        if audio_files:
-            media_group = [types.InputMediaAudio(media=file) for file in audio_files]
-            await message.answer_media_group(media_group)
-            await message.reply(f"Плейлист '{playlist_name}' успешно выгружен.")
-        else:
-            await message.reply(f"Не удалось загрузить треки из плейлиста '{playlist_name}'.")
-
+        await asyncio.gather(*tasks)
+        await message.reply(f"Плейлист {playlist_name} успешно выгружен")
     except Exception as e:
+        await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
         logging.error(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
-        await message.reply(f"Ошибка воспроизведения плейлиста '{playlist_name}': {e}")
+    finally:
+        await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
+async def handle_track(song_name, message: Message, track_number: int):
+    try:
+        await message.reply(f"Обработка трека №{track_number}: {song_name}")
+        track = await find_track(song_name)
+        if not track:
+            await message.reply(f"Трек '{song_name}' не найден. Пропускаю...")
+            return
+
+        await send_track_to_user(track, message)
+    except Exception as e:
+        logging.error(f"Ошибка при обработке трека '{song_name}': {e}")
+        await message.reply(f"Ошибка при обработке трека '{song_name}'. Пропускаю...")
 
 async def find_track(arg: str):
     if arg in track_cache:
@@ -275,3 +275,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+

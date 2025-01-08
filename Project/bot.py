@@ -25,13 +25,16 @@ executor = ThreadPoolExecutor(max_workers=5)
 
 track_cache = {}
 album_cache = {}
+playlists = []
+
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Найти трек", callback_data="find_track"),
      InlineKeyboardButton(text="Найти альбом", callback_data="find_album")],
     [InlineKeyboardButton(text="Создать плейлист", callback_data="create_playlist"),
      InlineKeyboardButton(text="Добавить в плейлист", callback_data="add_to_playlist")],
-    [InlineKeyboardButton(text="Воспроизвести плейлист", callback_data="play_playlist")]
+    [InlineKeyboardButton(text="Воспроизвести плейлист", callback_data="play_playlist")],
+    [InlineKeyboardButton(text="Завершить работу", callback_data="finish_work")]
 ])
 
 class MusicStates(StatesGroup):
@@ -41,10 +44,10 @@ class MusicStates(StatesGroup):
     ADD_TO_PLAYLIST = State()
     PLAY_PLAYLIST = State()
 
-@dp.message(Command(commands=['start', 'help']))
+@dp.message(Command(commands=['start']))
 async def send_welcome(message: Message):
     await message.reply(
-        "Привет! Я помогу тебе с музыкой из Яндекс Музыки. Выбери действие из меню ниже:",
+        "Привет! Выбери действие из меню ниже:",
         reply_markup=main_menu
     )
 
@@ -65,6 +68,10 @@ async def handle_menu(callback: CallbackQuery, state: FSMContext):
     elif callback.data == "play_playlist":
         await callback.message.reply("Введите имя плейлиста для воспроизведения.")
         await state.set_state(MusicStates.PLAY_PLAYLIST)
+    elif callback.data == "finish_work":
+        playlist_list = ", ".join(playlists) if playlists else "нет созданных плейлистов"
+        await callback.message.reply(f"Спасибо за использование бота!\nДоступные плейлисты: {playlist_list}")
+
 
 @dp.message(F.text, MusicStates.FIND_TRACK)
 async def process_find_track(message: Message, state: FSMContext):
@@ -73,8 +80,6 @@ async def process_find_track(message: Message, state: FSMContext):
     if not arg:
         await message.reply("Пожалуйста, укажите название или ссылку на трек.")
         return
-
-    await message.reply("Поиск трека, пожалуйста, подождите...")
 
     try:
         track = await find_track(arg)
@@ -96,8 +101,6 @@ async def process_find_album(message: Message, state: FSMContext):
     if not arg:
         await message.reply("Пожалуйста, укажите название или ссылку на альбом.")
         return
-
-    await message.reply("Поиск альбома, пожалуйста, подождите...")
 
     try:
         album = await find_album(arg)
@@ -121,7 +124,7 @@ async def process_create_playlist(message: Message, state: FSMContext):
         return
 
     try:
-        response = client.add_playlist(playlist_name)
+        playlists.append(playlist_name)
         await message.reply(f"Плейлист '{playlist_name}' успешно создан!")
     except Exception as e:
         logging.error(f"Ошибка при создании плейлиста: {e}")
@@ -171,16 +174,9 @@ async def process_play_playlist(message: Message, state: FSMContext):
             await message.reply(response)
             return
 
-        await message.reply(f"Начинаю воспроизведение плейлиста '{playlist_name}'...")
-
         song_lines = response.split("\n")[1:]
-        tasks = []
-
-        for i, song_line in enumerate(song_lines, start=1):
-            song_name = song_line.split(". ")[-1]
-            tasks.append(handle_track(song_name, message, i))
-
-        await asyncio.gather(*tasks)
+        all_songs = "\n".join(song_lines)
+        await message.reply(f"Плейлист '{playlist_name}' успешно выгружен:\n{all_songs}")
 
     except Exception as e:
         await message.reply(f"Ошибка при воспроизведении плейлиста '{playlist_name}': {e}")
@@ -188,18 +184,6 @@ async def process_play_playlist(message: Message, state: FSMContext):
     finally:
         await message.reply("Выберите следующее действие:", reply_markup=main_menu)
 
-async def handle_track(song_name, message: Message, track_number: int):
-    try:
-        await message.reply(f"Обработка трека №{track_number}: {song_name}")
-        track = await find_track(song_name)
-        if not track:
-            await message.reply(f"Трек '{song_name}' не найден. Пропускаю...")
-            return
-
-        await send_track_to_user(track, message)
-    except Exception as e:
-        logging.error(f"Ошибка при обработке трека '{song_name}': {e}")
-        await message.reply(f"Ошибка при обработке трека '{song_name}'. Пропускаю...")
 
 async def find_track(arg: str):
     if arg in track_cache:

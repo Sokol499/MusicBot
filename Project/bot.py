@@ -183,7 +183,7 @@ async def process_play_playlist(message: Message, state: FSMContext):
             song_name = song_line.split(". ")[-1].strip()
             if not song_name:
                 continue
-            tasks.append(handle_track(song_name, message, i))
+            tasks.append(handle_track(song_name, message))
 
         await asyncio.gather(*tasks)
 

@@ -25,7 +25,6 @@ executor = ThreadPoolExecutor(max_workers=5)
 
 track_cache = {}
 album_cache = {}
-playlists = []
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Найти трек", callback_data="find_track"),
@@ -68,10 +67,7 @@ async def handle_menu(callback: CallbackQuery, state: FSMContext):
         await callback.message.reply("Введите имя плейлиста для воспроизведения.")
         await state.set_state(MusicStates.PLAY_PLAYLIST)
     elif callback.data == "finish_work":
-        playlist_list = ", ".join(playlists) if playlists else "нет созданных плейлистов"
-        await callback.message.reply(
-            f"Спасибо за использование бота!\nДоступные плейлисты: {playlist_list}"
-        )
+        await callback.message.reply(f"Спасибо за использование бота!")
 
 @dp.message(F.text, MusicStates.FIND_TRACK)
 async def process_find_track(message: Message, state: FSMContext):

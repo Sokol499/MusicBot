@@ -16,3 +16,5 @@ MusicBot — это Telegram-бот, позволяющий автоматиче
 - **Go** — вспомогательные сервисы.
 - Telegram Bot API
 - PostgreSQL
+
+Дополнительное README в music_sevice

@@ -15,4 +15,4 @@ MusicBot — это Telegram-бот, позволяющий автоматиче
 - **Python** — основная логика бота.
 - **Go** — вспомогательные сервисы.
 - Telegram Bot API
-- Любые дополнительные библиотеки: `youtube-dl`, `ffmpeg` и т.д.
+- PostgreSQL
